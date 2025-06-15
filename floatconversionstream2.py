@@ -58,7 +58,7 @@ if user_input.strip():
             st.markdown(f"**Binary:** `{binary}`")
             st.markdown(f"**Bit Breakdown:**")
             st.text(f"Sign     : {s}")
-            st.text(f"Exponent : {e:05b} ({exp_val})")
+            st.text(f"Exponent : {e:05b}")
             st.text(f"Mantissa : {m:010b}")
             st.markdown(f"**Float breakdown:** {breakdown}")
 

@@ -28,14 +28,18 @@ def breakdown(bits):
 
     if e == 0 and m == 0:
         formula = "0"
+        status = "Zero"
     elif e == 0:
         formula = f"{'-1' if s else '1'} × 2^-14 × {mantissa:.4g}"
+        status = "Subnormal"
     elif e == 0x1F:
         formula = "Inf or NaN"
+        status = "Inf or NaN"
     else:
         formula = f"{'-1' if s else '1'} × 2^{exp_val} × {mantissa:.4g}"
+        status = "Normal"
 
-    return s, e, m, formula, f"{float16_to_bits(np.float16(bits)):016b}"
+    return s, e, m, formula, f"{float16_to_bits(np.float16(bits)):016b}", status
 
 # --- Streamlit App ---
 st.set_page_config(page_title="Float16 Toolkit", layout="centered")
@@ -76,7 +80,7 @@ if page == "Float16 Converter":
                     st.warning("Hex input must be 4 digits.")
 
             if bits is not None:
-                s, e, m, formula, binary = breakdown(bits)
+                s, e, m, formula, binary, status = breakdown(bits)
                 st.markdown("---")
                 st.markdown(f"**{result}**")
                 st.markdown(f"**Binary:** `{binary}`")
@@ -84,6 +88,7 @@ if page == "Float16 Converter":
                 st.text(f"Exponent : {e:05b}")
                 st.text(f"Mantissa : {m:010b}")
                 st.markdown(f"**Float breakdown:** {formula}")
+                st.markdown(f"**Status:** `{status}`")
 
         except Exception:
             st.error("Invalid input.")
@@ -108,7 +113,7 @@ def float16_binary_op(label, op_func):
                 b = parse_hex16(b_str) if b_is_hex else np.float16(float(b_str))
                 result = op_func(a, b)
                 result_bits = float16_to_bits(result)
-                s, e, m, formula, binary = breakdown(result_bits)
+                s, e, m, formula, binary, status = breakdown(result_bits)
 
                 st.markdown("---")
                 st.markdown(f"### Result: `{float(result):.6g}`  |  Hex: `0x{result_bits:04x}`")
@@ -117,26 +122,25 @@ def float16_binary_op(label, op_func):
                 st.text(f"Exponent : {e:05b}")
                 st.text(f"Mantissa : {m:010b}")
                 st.markdown(f"**Float formula:** {formula}")
+                st.markdown(f"**Status:** `{status}`")
 
             except ZeroDivisionError:
                 st.error("Division by zero.")
             except Exception:
                 st.error("Invalid input or conversion failed.")
 
+# --- Operations ---
 if page == "Addition":
     float16_binary_op("add", lambda a, b: np.float16(a + b))
-
-if page == "Subtraction":
+elif page == "Subtraction":
     float16_binary_op("sub", lambda a, b: np.float16(a - b))
-
-if page == "Multiplication":
+elif page == "Multiplication":
     float16_binary_op("mul", lambda a, b: np.float16(a * b))
-
-if page == "Division":
+elif page == "Division":
     float16_binary_op("div", lambda a, b: np.float16(a / b))
 
 # --- Square Root ---
-if page == "Square Root":
+elif page == "Square Root":
     x_str = st.text_input("Enter number (decimal or 0xABCD):", "")
     if x_str:
         try:
@@ -146,7 +150,7 @@ if page == "Square Root":
             else:
                 result = np.float16(np.sqrt(x))
                 result_bits = float16_to_bits(result)
-                s, e, m, formula, binary = breakdown(result_bits)
+                s, e, m, formula, binary, status = breakdown(result_bits)
 
                 st.markdown("---")
                 st.markdown(f"### √ Result: `{float(result):.6g}`  |  Hex: `0x{result_bits:04x}`")
@@ -155,5 +159,6 @@ if page == "Square Root":
                 st.text(f"Exponent : {e:05b}")
                 st.text(f"Mantissa : {m:010b}")
                 st.markdown(f"**Float formula:** {formula}")
+                st.markdown(f"**Status:** `{status}`")
         except Exception:
             st.error("Invalid input or conversion failed.")

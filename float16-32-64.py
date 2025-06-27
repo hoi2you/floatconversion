@@ -34,14 +34,18 @@ def breakdown(bits, dtype):
 
     if e == 0 and m == 0:
         formula = "0"
+        status = "Zero"
     elif e == 0:
         formula = f"{'-1' if s else '1'} × 2^{1-bias} × {mantissa:.4g}"
+        status = "Subnormal"
     elif e == (1 << exp_bits) - 1:
         formula = "Inf or NaN"
+        status = "Overflow or NaN"
     else:
         formula = f"{'-1' if s else '1'} × 2^{exp_val} × {mantissa:.4g}"
+        status = "Normal"
 
-    return s, e, m, formula, f"{bits:0{total_bits}b}"
+    return s, e, m, formula, f"{bits:0{total_bits}b}", status
 
 # --- Streamlit App ---
 st.set_page_config(page_title="Float Toolkit", layout="centered")
@@ -68,7 +72,7 @@ if page == "Converter":
                 result = dtype(float(user_input))
 
             bits = float_to_bits(result, dtype)
-            s, e, m, formula, binary = breakdown(bits, dtype)
+            s, e, m, formula, binary, status = breakdown(bits, dtype)
 
             st.markdown("---")
             st.markdown(f"**Hex:** `0x{bits:0{bitwidth//4}x}`")
@@ -77,6 +81,7 @@ if page == "Converter":
             st.text(f"Exponent : {e:0{exp_bits}b}")
             st.text(f"Mantissa : {m:0{man_bits}b}")
             st.markdown(f"**Float formula:** {formula}")
+            st.markdown(f"**Status:** `{status}`")
 
         except Exception:
             st.error("Invalid input.")
@@ -97,7 +102,7 @@ def binary_op(label, op_func):
             result = op_func(a, b)
 
             bits = float_to_bits(result, dtype)
-            s, e, m, formula, binary = breakdown(bits, dtype)
+            s, e, m, formula, binary, status = breakdown(bits, dtype)
 
             st.markdown("---")
             st.markdown(f"### Result: `{float(result):.6g}`  |  Hex: `0x{bits:0{bitwidth//4}x}`")
@@ -106,6 +111,7 @@ def binary_op(label, op_func):
             st.text(f"Exponent : {e:0{exp_bits}b}")
             st.text(f"Mantissa : {m:0{man_bits}b}")
             st.markdown(f"**Float formula:** {formula}")
+            st.markdown(f"**Status:** `{status}`")
 
         except ZeroDivisionError:
             st.error("Division by zero.")
@@ -130,7 +136,7 @@ elif page == "Square Root":
             else:
                 result = dtype(np.sqrt(x))
                 bits = float_to_bits(result, dtype)
-                s, e, m, formula, binary = breakdown(bits, dtype)
+                s, e, m, formula, binary, status = breakdown(bits, dtype)
 
                 st.markdown("---")
                 st.markdown(f"### √ Result: `{float(result):.6g}`  |  Hex: `0x{bits:0{bitwidth//4}x}`")
@@ -139,5 +145,6 @@ elif page == "Square Root":
                 st.text(f"Exponent : {e:0{exp_bits}b}")
                 st.text(f"Mantissa : {m:0{man_bits}b}")
                 st.markdown(f"**Float formula:** {formula}")
+                st.markdown(f"**Status:** `{status}`")
         except Exception:
             st.error("Invalid input.")

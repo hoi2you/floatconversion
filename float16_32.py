@@ -115,7 +115,7 @@ else:
         except:
             st.error("Invalid input.")
 
-elif operation == "Square Root":
+if operation == "Square Root":
     x_str = st.text_input("Enter number (decimal or hex):", key="sqrt")
     if x_str:
         is_hex_mode = x_str.startswith("0x") or is_hex(x_str)

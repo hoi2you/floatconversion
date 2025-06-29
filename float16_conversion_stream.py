@@ -1,100 +1,82 @@
-# NOTE: This script requires Streamlit and NumPy. Install them with:
-# pip install streamlit numpy
-
+# Streamlit Decimal to Float16 Visualizer
 import streamlit as st
 import numpy as np
+import math
 
-# --- Functions for Float16 Conversion ---
-def float16_to_components(val):
+st.set_page_config(page_title="Float16 Visualizer", layout="centered")
+st.title("🔍 Decimal to Float16 Conversion Visualizer")
+
+# --- Input ---
+decimal_input = st.text_input("Enter a decimal number:", "1.5")
+
+try:
+    val = float(decimal_input)
     f16 = np.float16(val)
     bits = np.frombuffer(f16.tobytes(), dtype=np.uint16)[0]
-    s = (bits >> 15) & 0x1
-    e = (bits >> 10) & 0x1F
-    m = bits & 0x3FF
-    
-    bias = 15
-    actual_exp = e - bias
+    sign = (bits >> 15) & 0x1
+    exponent = (bits >> 10) & 0x1F
+    mantissa = bits & 0x3FF
 
-    if e == 0 and m == 0:
-        classification = "Zero"
-    elif e == 0:
-        classification = "Subnormal"
-    elif e == 0x1F:
-        classification = "Inf or NaN"
+    st.markdown("---")
+    st.header("Step-by-Step Breakdown")
+
+    # --- Step 1: Sign Bit ---
+    st.subheader("1. Sign Bit")
+    st.write(f"The number is {'negative' if sign else 'positive'}, so the sign bit is `{sign}`.")
+
+    # --- Step 2: Convert to Binary Scientific Notation ---
+    st.subheader("2. Normalize to Binary Scientific Notation")
+    abs_val = abs(val)
+    if abs_val == 0.0:
+        st.write("The value is zero. All bits are zero.")
+        norm_str = "0"
     else:
-        classification = "Normal"
+        exp = int(np.floor(np.log2(abs_val)))
+        normalized = abs_val / (2 ** exp)
+        norm_str = f"{normalized:.5f} × 2^{exp}"
+        st.write(f"We write {val} as approximately **{norm_str}**.")
 
-    return {
-        "sign": s,
-        "exponent_raw": e,
-        "exponent_actual": actual_exp,
-        "mantissa": m,
-        "binary": f"{bits:016b}",
-        "hex": f"0x{bits:04x}",
-        "classification": classification,
-        "float16": float(f16)
-    }
+    # --- Step 3: Apply Bias (15 for Float16) ---
+    st.subheader("3. Apply Exponent Bias (15 for Float16)")
+    biased_exp = exponent
+    unbiased_exp = biased_exp - 15
+    st.write(f"Encoded exponent = `{biased_exp:05b}` → Unbiased exponent = `{unbiased_exp}`")
+    st.write("This creates a \"window\" where the number resides: the power-of-two scale.")
 
-# --- Streamlit Interface ---
-st.set_page_config(page_title="Float16 Visualizer", layout="centered")
-st.title("🧮 Float16 Visual Conversion")
+    # --- Step 4: Mantissa (Fractional Part) ---
+    st.subheader("4. Mantissa (Fractional Part)")
+    if exponent == 0:
+        st.write("This is a subnormal number. The leading bit is not assumed to be 1.")
+    elif exponent == 0x1F:
+        st.write("This is either Inf or NaN. The mantissa is not meaningful.")
+    else:
+        st.write(f"Mantissa bits: `{mantissa:010b}`")
+        frac_val = 1 + mantissa / (2 ** 10)
+        st.write(f"Actual mantissa value used = `{frac_val}`")
 
-val_input = st.text_input("Enter a decimal value to convert to Float16:", "1.5")
+    # --- Step 5: Final Bits ---
+    st.subheader("5. Final 16-bit Layout")
+    bit_string = f"{sign}{exponent:05b}{mantissa:010b}"
+    st.code(bit_string, language="")
 
-if val_input:
-    try:
-        val = float(val_input)
-        components = float16_to_components(val)
+    # Colorful layout
+    st.markdown(f"""
+    <div style='font-family: monospace; font-size: 16px;'>
+        <span style='color: red;'>Sign</span>: <code>{sign}</code>
+        &nbsp;&nbsp;
+        <span style='color: green;'>Exponent</span>: <code>{exponent:05b}</code>
+        &nbsp;&nbsp;
+        <span style='color: blue;'>Mantissa</span>: <code>{mantissa:010b}</code>
+    </div>
+    <br>
+    <b>Hex Representation:</b> <code>0x{bits:04x}</code>
+    """, unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.subheader("Step-by-Step Conversion")
+    # Special checks
+    if exponent == 0 and mantissa != 0:
+        st.warning("⚠️ This is a subnormal number.")
+    elif exponent == 0x1F:
+        st.warning("⚠️ This is a special value: Infinity or NaN.")
 
-        st.markdown(f"**Decimal Input:** `{val}`")
-        st.markdown(f"**Float16 Output:** `{components['float16']}`")
-        st.markdown(f"**Binary Representation:** `{components['binary']}`")
-        st.markdown(f"**Hex Representation:** `{components['hex']}`")
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Sign Bit", components['sign'])
-        col2.metric("Exponent (Raw)", f"{components['exponent_raw']:05b}")
-        col3.metric("Mantissa", f"{components['mantissa']:010b}")
-
-        st.markdown(f"**Exponent (Actual):** `{components['exponent_actual']}`")
-        st.markdown(f"**Classification:** `{components['classification']}`")
-
-        # Visual layout
-        st.markdown("---")
-        st.subheader("Bit Breakdown")
-        bit_str = components['binary']
-
-        # Highlighted bit groups
-        st.markdown(
-            f"""
-            <div style='font-family: monospace; font-size: 1.2em;'>
-            <span style='color: red;'>Sign:</span> {bit_str[0]} &nbsp;
-            <span style='color: green;'>Exponent:</span> {bit_str[1:6]} &nbsp;
-            <span style='color: blue;'>Mantissa:</span> {bit_str[6:]}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown("---")
-        st.markdown("""
-        ### Float Construction Formula
-        \[ \text{value} = (-1)^{\text{sign}} \times 2^{\text{exponent}} \times (1 + \text{mantissa fraction}) \]
-        """)
-
-        if components['classification'] == "Normal":
-            mantissa_val = components['mantissa'] / 1024
-            st.latex(f"(-1)^{{{components['sign']}}} \\times 2^{{{components['exponent_actual']}}} \\times (1 + {mantissa_val:.4g})")
-        elif components['classification'] == "Subnormal":
-            mantissa_val = components['mantissa'] / 1024
-            st.latex(f"(-1)^{{{components['sign']}}} \\times 2^{{-14}} \\times {mantissa_val:.4g}")
-        elif components['classification'] == "Zero":
-            st.latex("0")
-        else:
-            st.markdown("Special value: Inf or NaN")
-
-    except Exception:
-        st.error("Please enter a valid decimal number.")
+except Exception:
+    st.error("Invalid decimal input.")
